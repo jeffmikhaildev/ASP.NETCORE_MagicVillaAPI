@@ -11,10 +11,19 @@ namespace ASP.NETCoreRestAPI.Controllers
     [ApiController]
     public class VillaAPIController : ControllerBase
     {
+        private readonly ILogger<VillaAPIController> _logger;
+        public VillaAPIController(ILogger<VillaAPIController> logger)
+        {
+            _logger = logger;
+        }
+
+
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public ActionResult<IEnumerable<VillaDTO>> GetVillas()
         {
+            _logger.LogInformation("Getting all villas");
+
             return Ok(VillaStore.villaList);
         }
 
@@ -28,6 +37,7 @@ namespace ASP.NETCoreRestAPI.Controllers
 
             if (id == 0)
             {
+                _logger.LogError("Invalid villa ID: {Id}", id);
                 return BadRequest();
             }
 
@@ -35,9 +45,12 @@ namespace ASP.NETCoreRestAPI.Controllers
 
             if (villa == null)
             {
+                _logger.LogWarning("Villa with ID {Id} not found", id);
                 return NotFound();
             }
 
+
+            _logger.LogInformation("Returning villa with ID {Id}", id);
             return Ok(villa);
         }
 
@@ -52,22 +65,27 @@ namespace ASP.NETCoreRestAPI.Controllers
             {
                 ModelState.AddModelError("CustomError", "Villa already exists!");
 
+                _logger.LogError("Villa with name {Name} already exists", villaDTO.Name);
                 return BadRequest(ModelState);
             }
 
             if (villaDTO == null)
             {
+                _logger.LogError("Villa data is null");
                 return BadRequest(villaDTO);
             }
 
             if (villaDTO.Id > 0)
             {
+
                 return StatusCode(StatusCodes.Status500InternalServerError);
             }
 
             villaDTO.Id = VillaStore.villaList.OrderByDescending(v => v.Id).FirstOrDefault().Id + 1;
 
+
             VillaStore.villaList.Add(villaDTO);
+            _logger.LogInformation("Villa created with ID {Id}", villaDTO.Id);
 
             return CreatedAtRoute("GetVilla", new { id = villaDTO.Id }, villaDTO);
         }
@@ -80,6 +98,7 @@ namespace ASP.NETCoreRestAPI.Controllers
         {
             if (id == 0)
             {
+                _logger.LogError("Invalid villa ID: {Id}", id);
                 return BadRequest();
             }
 
@@ -87,10 +106,13 @@ namespace ASP.NETCoreRestAPI.Controllers
 
             if (villa == null)
             {
+                _logger.LogWarning("Villa with ID {Id} not found", id);
                 return NotFound();
             }
 
             VillaStore.villaList.Remove(villa);
+            _logger.LogInformation("Villa with ID {Id} deleted", id);
+
             return NoContent();
         }
 
@@ -103,6 +125,8 @@ namespace ASP.NETCoreRestAPI.Controllers
         {
             if (villaDTO == null || id != villaDTO.Id)
             {
+
+                _logger.LogError("Villa data is null or ID mismatch: {Id}", id);
                 return BadRequest();
             }
 
@@ -110,12 +134,15 @@ namespace ASP.NETCoreRestAPI.Controllers
 
             if (villa == null)
             {
+                _logger.LogWarning("Villa with ID {Id} not found for update", id);
                 return NotFound();
             }
 
             villa.Name = villaDTO.Name;
             villa.Occupancy = villaDTO.Occupancy;
             villa.Sqft = villaDTO.Sqft;
+
+            _logger.LogInformation("Villa with ID {Id} updated", id);
 
             return NoContent();
         }
@@ -129,6 +156,7 @@ namespace ASP.NETCoreRestAPI.Controllers
         {
             if (patchDTO == null || id == 0)
             {
+                _logger.LogError("Invalid patch data or ID: {Id}", id);
                 return BadRequest();
             }
 
@@ -137,16 +165,25 @@ namespace ASP.NETCoreRestAPI.Controllers
 
             if (villa == null)
             {
+                _logger.LogWarning("Villa with ID {Id} not found for patch update", id);
                 return NotFound();
+            }
+
+            if (villa.Id != id)
+            {
+                _logger.LogError("ID mismatch: expected {ExpectedId}, got {ActualId}", id, villa.Id);
+                return BadRequest();
             }
 
             patchDTO.ApplyTo(villa, ModelState);
 
             if (!ModelState.IsValid)
             {
+                _logger.LogError("Model state is invalid after patching villa with ID {Id}", id);
                 return BadRequest(ModelState);
             }
 
+             
             return NoContent();
         }
 
